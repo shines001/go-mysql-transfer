@@ -10,7 +10,7 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 
 1、简单，不依赖其它组件，一键部署
 
-2、集成多种接收端，如：Redis、MongoDB、Elasticsearch、RocketMQ、Kafka、RabbitMQ、HTTP API等，无需编写客户端，开箱即用
+2、集成多种接收端，如：Mysql、Redis、MongoDB、Elasticsearch、RocketMQ、Kafka、RabbitMQ、HTTP API等，无需编写客户端，开箱即用
 
 3、内置丰富的数据解析、消息生成规则、模板语法
 
