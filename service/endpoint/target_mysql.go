@@ -150,8 +150,8 @@ func (s *MysqlEndpoint) Stock(rows []*model.RowRequest) int64 {
 		kvm := rowMap(row, rule, false)
 
 		//为了确保绑定变量和数据一一对应
-		fieldList := make([]string, len(kvm))      //field列表
-		valueList := make([]interface{}, len(kvm)) //值列表
+		var fieldList []string      //field列表
+		var valueList []interface{} //值列表
 		for k, v := range kvm {
 			//新的值列表,insert 和 delete只需要kvm,update语句需要旧的值,即old_kvm
 			fieldList = append(fieldList, k)
