@@ -314,22 +314,35 @@ func ToUint32Safe(str string) uint32 {
 	return uint32(v)
 }
 
-func BuildUpdate(table string, kvm, old_kvm map[string]interface{}) string {
+func BuildUpdate(table string, flist []string, dbType string) string {
 	sql := ` update ` + table
 	set_sql := ` set `
 	where_sql := ` where 1 = 1 `
 
 	i := 0
-	for k, v := range kvm {
-		set_sql += k + ` = ` + ToSQLString(v)
-		if i != len(kvm)-1 {
+	for _, k := range flist {
+		set_sql += k + ` = `
+		where_sql = where_sql + ` and ` + k + ` = `
+
+		switch dbType {
+		case "mysql":
+			set_sql += `?`
+			where_sql += `?`
+		case "postgres":
+			set_sql = set_sql + `$` + strconv.Itoa(i+1)
+			where_sql = where_sql + `$` + strconv.Itoa(i+1)
+		case "oracle":
+			set_sql = set_sql + `:` + strconv.Itoa(i+1)
+			where_sql = where_sql + `:` + strconv.Itoa(i+1)
+		default:
+			set_sql += `?`
+			where_sql += `?`
+		}
+
+		if i != len(flist)-1 {
 			set_sql += ` , `
 		}
 		i++
-	}
-
-	for k, v := range old_kvm {
-		where_sql = where_sql + ` and ` + k + ` = ` + ToSQLString(v)
 	}
 
 	sql += set_sql + where_sql
@@ -337,18 +350,28 @@ func BuildUpdate(table string, kvm, old_kvm map[string]interface{}) string {
 	return sql
 }
 
-func BuildInsert(table string, kvm map[string]interface{}) string {
+func BuildInsert(table string, flist []string, dbType string) string {
 
 	sql := `INSERT INTO ` + table
 	cln_sql := ` ( `
 	vle_sql := ` VALUES (`
 
 	i := 0
-	for k, v := range kvm {
+	for _, k := range flist {
 		cln_sql += k
-		vle_sql += ToSQLString(v)
 
-		if i == len(kvm)-1 {
+		switch dbType {
+		case "mysql":
+			vle_sql += `?`
+		case "postgres":
+			vle_sql = vle_sql + `$` + strconv.Itoa(i+1)
+		case "oracle":
+			vle_sql = vle_sql + `:` + strconv.Itoa(i+1)
+		default:
+			vle_sql += `?`
+		}
+
+		if i == len(flist)-1 {
 			cln_sql += ` ) `
 			vle_sql += ` ) `
 		} else {
@@ -363,70 +386,24 @@ func BuildInsert(table string, kvm map[string]interface{}) string {
 	return sql
 }
 
-func BuildDelete(table string, kvm map[string]interface{}) string {
+func BuildDelete(table string, flist []string, dbType string) string {
 	sql := `delete from ` + table + ` where 1 = 1 `
 
-	for k, v := range kvm {
-		sql = sql + ` and ` + k + ` = ` + ToSQLString(v)
+	i := 0
+	for _, k := range flist {
+		sql = sql + ` and ` + k + ` = `
+		switch dbType {
+		case "mysql":
+			sql += `?`
+		case "postgres":
+			sql = sql + `$` + strconv.Itoa(i+1)
+		case "oracle":
+			sql = sql + `:` + strconv.Itoa(i+1)
+		default:
+			sql += `?`
+		}
+		i++
 	}
 
 	return sql
-}
-
-func ToSQLString(value interface{}) string {
-	var key string
-	if value == nil {
-		return key
-	}
-
-	switch value.(type) {
-	case float64:
-		ft := value.(float64)
-		key = strconv.FormatFloat(ft, 'f', -1, 64)
-	case float32:
-		ft := value.(float32)
-		key = strconv.FormatFloat(float64(ft), 'f', -1, 64)
-	case int:
-		it := value.(int)
-		key = strconv.Itoa(it)
-	case uint:
-		it := value.(uint)
-		key = strconv.Itoa(int(it))
-	case int8:
-		it := value.(int8)
-		key = strconv.Itoa(int(it))
-	case uint8:
-		it := value.(uint8)
-		key = strconv.Itoa(int(it))
-	case int16:
-		it := value.(int16)
-		key = strconv.Itoa(int(it))
-	case uint16:
-		it := value.(uint16)
-		key = strconv.Itoa(int(it))
-	case int32:
-		it := value.(int32)
-		key = strconv.Itoa(int(it))
-	case uint32:
-		it := value.(uint32)
-		key = strconv.Itoa(int(it))
-	case int64:
-		it := value.(int64)
-		key = strconv.FormatInt(it, 10)
-	case uint64:
-		it := value.(uint64)
-		key = strconv.FormatUint(it, 10)
-	case string:
-		key = value.(string)
-		key = "'" + key + "'"
-	case []byte:
-		key = string(value.([]byte))
-		key = "'" + key + "'"
-	default:
-		newValue, _ := json.Marshal(value)
-		key = string(newValue)
-		key = "'" + key + "'"
-	}
-
-	return key
 }

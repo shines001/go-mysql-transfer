@@ -86,26 +86,50 @@ func (s *MysqlEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) e
 		table := rule.MysqlDatabase + "." + rule.MysqlTable
 		var sql_text string
 		kvm := rowMap(row, rule, false)
+
+		//为了确保绑定变量和数据一一对应
+		var fieldList []string      //field列表
+		var valueList []interface{} //值列表
+		for k, v := range kvm {
+			//新的值列表,insert 和 delete只需要kvm,update语句需要旧的值,即old_kvm
+			fieldList = append(fieldList, k)
+			valueList = append(valueList, v)
+		}
+
 		switch row.Action {
 		case canal.UpdateAction:
 			old_kvm := oldRowMap(row, rule, false)
-			sql_text = stringutil.BuildUpdate(table, kvm, old_kvm)
+
+			for _, k := range fieldList {
+				valueList = append(valueList, old_kvm[k])
+			}
+			sql_text = stringutil.BuildUpdate(table, fieldList, "mysql")
+
 		case canal.InsertAction:
-			sql_text = stringutil.BuildInsert(table, kvm)
+			sql_text = stringutil.BuildInsert(table, fieldList, "mysql")
 		case canal.DeleteAction:
-			sql_text = stringutil.BuildDelete(table, kvm)
+			sql_text = stringutil.BuildDelete(table, fieldList, "mysql")
 		default:
 			logs.Errorf("Consume get error action: %v", row)
 			continue
 		}
 
-		_, err := s.client.Execute(sql_text)
+		stmt, err := s.client.Prepare(sql_text)
 		if err != nil {
-			logs.Errorf("mysql execute error : %v, sql is :%s  ", err, sql_text)
+			logs.Errorf("mysql prepare error : %v, sql is :%s  ", err, sql_text)
 			continue
 		}
-		logs.Infof("Excute %s OK!  SQL is :%s ", row.Action, sql_text)
-		fmt.Printf("Excute %s OK!  SQL is :%s \n ", row.Action, sql_text)
+
+		defer stmt.Close()
+
+		_, errExt := stmt.Execute(valueList[0:]...)
+		if errExt != nil {
+			logs.Errorf("mysql execute error : %v, value is :%v  ", errExt, valueList)
+			continue
+		}
+
+		logs.Infof("Excute %s OK!  SQL is :%s, value: %v ", row.Action, sql_text, valueList)
+		fmt.Printf("Excute %s OK!  SQL is :%s ,value: %v\n ", row.Action, sql_text, valueList)
 
 	}
 
@@ -124,26 +148,50 @@ func (s *MysqlEndpoint) Stock(rows []*model.RowRequest) int64 {
 		table := rule.MysqlDatabase + "." + rule.MysqlTable
 		var sql_text string
 		kvm := rowMap(row, rule, false)
+
+		//为了确保绑定变量和数据一一对应
+		fieldList := make([]string, len(kvm))      //field列表
+		valueList := make([]interface{}, len(kvm)) //值列表
+		for k, v := range kvm {
+			//新的值列表,insert 和 delete只需要kvm,update语句需要旧的值,即old_kvm
+			fieldList = append(fieldList, k)
+			valueList = append(valueList, v)
+		}
+
 		switch row.Action {
 		case canal.UpdateAction:
 			old_kvm := oldRowMap(row, rule, false)
-			sql_text = stringutil.BuildUpdate(table, kvm, old_kvm)
+
+			for _, k := range fieldList {
+				valueList = append(valueList, old_kvm[k])
+			}
+			sql_text = stringutil.BuildUpdate(table, fieldList, "mysql")
+
 		case canal.InsertAction:
-			sql_text = stringutil.BuildInsert(table, kvm)
+			sql_text = stringutil.BuildInsert(table, fieldList, "mysql")
 		case canal.DeleteAction:
-			sql_text = stringutil.BuildDelete(table, kvm)
+			sql_text = stringutil.BuildDelete(table, fieldList, "mysql")
 		default:
 			logs.Errorf("Consume get error action: %v", row)
 			continue
 		}
 
-		_, err := s.client.Execute(sql_text)
+		stmt, err := s.client.Prepare(sql_text)
 		if err != nil {
-			logs.Errorf("mysql execute error : %v, sql is :%s  ", err, sql_text)
+			logs.Errorf("mysql prepare error : %v, sql is :%s  ", err, sql_text)
 			continue
 		}
-		logs.Infof("Excute %s OK!  SQL is :%s ", row.Action, sql_text)
-		fmt.Printf("Excute %s OK!  SQL is :%s \n ", row.Action, sql_text)
+
+		defer stmt.Close()
+
+		_, errExt := stmt.Execute(valueList[0:]...)
+		if errExt != nil {
+			logs.Errorf("mysql execute error : %v, value is :%v  ", errExt, valueList)
+			continue
+		}
+
+		logs.Infof("Excute %s OK!  SQL is :%s, value: %v ", row.Action, sql_text, valueList)
+		fmt.Printf("Excute %s OK!  SQL is :%s ,value: %v\n ", row.Action, sql_text, valueList)
 	}
 
 	return int64(len(rows))

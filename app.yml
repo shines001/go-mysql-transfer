@@ -79,7 +79,7 @@ mysql_pass: 910825
 rule:
   -
     schema: lxy #源数据库名称
-    table: tt_test #源表名称
+    table: tt_test #源表名称,mysql、oracle、pg不支持同配符号
     order_by_column: tt_id #排序字段，存量数据同步时不能为空
     #column_lower_case:false #列名称转为小写,默认为false
     #column_upper_case: true #列名称转为大写,默认为false
