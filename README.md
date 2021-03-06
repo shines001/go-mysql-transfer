@@ -15,13 +15,14 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 
 **项目目标**
 
-1、新增目标数据库源，包括mysql, postgresql, oracle等....
+1、新增目标数据库源，包括mysql, postgresql, oracle等...
+
 2、提升产品体验
 
 
 
 
-# 源码编译
+**源码编译**
 
 1、依赖Golang 1.14 及以上版本
 
