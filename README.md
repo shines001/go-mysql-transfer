@@ -171,32 +171,6 @@ server_id=1 # 配置 MySQL replaction 需要定义，不要和 go-mysql-transfer
 
 
 
-# 更新日志
-
-**v1.0.0 bate**
-
-* 9.17  初始化提交bate版本
-
-**v1.0.1 release**
-
-* 9.22  release
-
-**v1.0.2 release**
-
-* 添加dbOps（数据库操作）、httpOps（http操作）两个Lua模块
-* 修复enum类型字段出现的乱码问题
-* redis接收端增加*Sorted*  Set数据类型支持
-* 修复了近来反馈的bug
-
-**v1.0.3 release**
-
-* 添加了Web Admin监控界面
-* 改进了全量数据同步的速度
-* 重构了失败重试机制
-* 功能优化，如：针对MongoDB添加UPSERT操作、针对消息队列添加了update原始数据保留，等等
-
-**v1.0.4 release**
-* 修复了 -position 命令，binlog 名称验证问题
 
 
 **查看binlog命令**
