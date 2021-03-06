@@ -13,11 +13,7 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 
 * [官方产品手册](https://www.kancloud.cn/wj596/go-mysql-transfer/2064425)
 
-**项目目标**
-
-1、新增目标数据库源，包括mysql, postgresql, oracle等...
-
-2、提升产品体验
+ 本项目致力于丰富功能，提升使用体验，并新增对关系型数据库的支持，包括mysql, postgresql, oracle等...
 
 
 **源码编译**
@@ -31,6 +27,7 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 4、进入目录，执行 ' go build '编译
 
 
+#Work List
 **查看binlog命令**
 
 mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql-bin.000001
