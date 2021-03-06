@@ -32,4 +32,5 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 
 
 **查看binlog命令**
+
 mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql-bin.000001
