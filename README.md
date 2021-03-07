@@ -31,7 +31,7 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql-bin.000001
 
 
-# todo list
+# 工作列表
 
 | 工作项 |  描述   |  状态 |
 | :------ | :------ | :------ |
@@ -44,19 +44,6 @@ mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql
 | postgres支持 | 目标库支持postgres | 未开始|
 | oracle支持 | 目标库支持oracle| 未开始|
 
-**功能优化**
-
-1、目标库宕机处理，目前无法妥善处理
-
-2、Truncate操作无法同步
-
-3、不支持gtid
-
-4、源数据库表结构变更会导致同步失败
 
 
-**新增目标数据库**
 
-1、支持Mysql 
-2、支持Postgresql
-3、支持oracle
