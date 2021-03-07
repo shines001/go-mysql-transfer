@@ -35,11 +35,11 @@ mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql
 
 | 工作项 |  描述   |  状态 |
 | :------ | :------ | :------ |
-| 宕机处理 |  如果目标库宕了，go-mysql-transfer没宕，源库上后续插的数据，全部丢了。目标库重启后，go-mysql-transfer还是夯住状态，无法同步，必须要重启go-mysql-transfer |   未开始 |
+| 宕机处理 |  如果目标库宕了，go-mysql-transfer没宕，会不断增加pos，导致数据未同步 |   未开始 |
 | truncate支持 |truncate操作没有同步  | 进行中 |
 | gtid支持  |不支持gtid，在源库做了主备切换后，go-mysql-transfer切换到新主库时，可能会有数据丢失|未开始| 
 | 写目标库用存储过程|写目标端的SQL，未考虑绑定变量，执行效率有问题。|已完成|
-| 表结构变化| 源数据库表结构变化，工具无法自动修改目标库的表结构，会造成同步中断，源表结构变化需手动修改目标库结构|未开始|
+| 表结构变化| 源数据库表结构变化，工具无法自动修改目标库的表结构，会造成同步中断|未开始|
 | mysql支持| 目标库支持mysql|已完成|
 | postgres支持 | 目标库支持postgres | 未开始|
 | oracle支持 | 目标库支持oracle| 未开始|
