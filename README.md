@@ -33,6 +33,10 @@ mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql
 
 # 工作列表
 
+| 工作项目 |  说明   |  结果 |
+| :------ | :------ | :------ |
+|  宕机处理 |   sdfsdf |   8888 |
+
 **功能优化**
 
 1、目标库宕机处理，目前无法妥善处理
