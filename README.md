@@ -2,18 +2,41 @@
 
 # 简介
 
+**概念**
+
 go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 
 能够监听MySQL二进制日志(Binlog)的变动，将变更内容形成指定格式的消息，实时发送到接收端。从而在数据库和接收端之间形成一个高性能、低延迟的增量数据同步更新管道。
 
-**官方项目信息**
+**原理**
 
-* [官方源github地址](https://github.com/wj596/go-mysql-transfer)
+1、将自己伪装为MySQL的Slave监听binlog，获取binlog的变更数据
+
+2、根据规则或者lua脚本解析数据，生成指定格式的消息
+
+3、将生成的消息批量发送给接收端
 
 
-* [官方产品手册](https://www.kancloud.cn/wj596/go-mysql-transfer/2064425)
+**特性**
 
- 本项目致力于丰富功能，提升使用体验，并新增对关系型数据库的支持，包括mysql, postgresql, oracle等...
+1、简单，不依赖其它组件，一键部署
+
+2、集成多种接收端，如：Mysql、Redis、MongoDB、Elasticsearch、RocketMQ、Kafka、RabbitMQ、HTTP API等，无需编写客户端，开箱即用
+
+3、内置丰富的数据解析、消息生成规则、模板语法
+
+4、支持Lua脚本扩展，可处理复杂逻辑
+
+5、集成Prometheus客户端，支持监控告警
+
+6、集成Web Admin监控页面
+
+7、支持高可用集群部署
+
+8、数据同步失败重试
+
+9、支持全量数据初始化
+
 
 
 **源码编译**
@@ -45,5 +68,13 @@ mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql
 | oracle支持 | 目标库支持oracle| todo|
 
 
+**感谢**
 
+* [go-mysql](https://github.com/siddontang/go-mysql)
+
+* [源github地址](https://github.com/wj596/go-mysql-transfer)
+
+* [手册](https://www.kancloud.cn/wj596/go-mysql-transfer/2064425)
+
+ 
 
