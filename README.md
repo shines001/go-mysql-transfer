@@ -53,6 +53,12 @@ go-mysql-transfer是一款MySQL数据库实时增量同步工具。
 
 mysqlbinlog  --no-defaults   -v --base64-output=decode-rows /var/lib/mysql/mysql-bin.000001
 
+show master status
+
+show binlog events
+
+show binary logs
+
 
 # 工作列表
 
