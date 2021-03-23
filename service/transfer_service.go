@@ -320,7 +320,7 @@ func (s *TransferService) checkInitGtid() error {
 	}
 
 	if gtid.Sets == nil {
-		res, err := s.canal.Execute("show global variables like 'gtid_purged'")
+		res, err := s.canal.Execute("show global variables like 'gtid_executed'")
 		defer res.Close()
 		if err != nil {
 			return errors.Trace(err)
