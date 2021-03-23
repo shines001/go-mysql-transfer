@@ -18,6 +18,7 @@
 package service
 
 import (
+	"fmt"
 	"go-mysql-transfer/metrics"
 	"log"
 	"time"
@@ -45,6 +46,8 @@ func newHandler() *handler {
 }
 
 func (s *handler) OnRotate(e *replication.RotateEvent) error {
+
+	fmt.Printf("OnRotate replication.RotateEvent:  %v\n", e)
 	s.queue <- model.PosRequest{
 		Name:  string(e.NextLogName),
 		Pos:   uint32(e.Position),
@@ -54,6 +57,7 @@ func (s *handler) OnRotate(e *replication.RotateEvent) error {
 }
 
 func (s *handler) OnTableChanged(schema, table string) error {
+	fmt.Printf("OnTableChanged  %s.%s\n", schema, table)
 	err := _transferService.updateRule(schema, table)
 	if err != nil {
 		return errors.Trace(err)
@@ -61,7 +65,8 @@ func (s *handler) OnTableChanged(schema, table string) error {
 	return nil
 }
 
-func (s *handler) OnDDL(nextPos mysql.Position, _ *replication.QueryEvent) error {
+func (s *handler) OnDDL(nextPos mysql.Position, qe *replication.QueryEvent) error {
+	fmt.Printf("OnDDL  nextPos :%v, queryEvent :%s,%s\n ", nextPos, string(qe.Schema), string(qe.Query))
 	s.queue <- model.PosRequest{
 		Name:  nextPos.Name,
 		Pos:   nextPos.Pos,
@@ -71,6 +76,8 @@ func (s *handler) OnDDL(nextPos mysql.Position, _ *replication.QueryEvent) error
 }
 
 func (s *handler) OnXID(nextPos mysql.Position) error {
+
+	fmt.Printf("OnXID %v\n", nextPos)
 	s.queue <- model.PosRequest{
 		Name:  nextPos.Name,
 		Pos:   nextPos.Pos,
@@ -80,6 +87,9 @@ func (s *handler) OnXID(nextPos mysql.Position) error {
 }
 
 func (s *handler) OnRow(e *canal.RowsEvent) error {
+
+	fmt.Printf("OnRow  %v\n", e)
+
 	ruleKey := global.RuleKey(e.Table.Schema, e.Table.Name)
 	if !global.RuleInsExist(ruleKey) {
 		return nil
@@ -122,10 +132,19 @@ func (s *handler) OnRow(e *canal.RowsEvent) error {
 }
 
 func (s *handler) OnGTID(gtid mysql.GTIDSet) error {
+
+	fmt.Printf("OnGTID %v\n", gtid)
+	fmt.Println(gtid.String())
+	s.queue <- model.GtidRequest{
+		Set:   gtid,
+		Force: false,
+	}
 	return nil
 }
 
 func (s *handler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
+
+	fmt.Printf("OnPosSynced\n")
 	return nil
 }
 
@@ -142,8 +161,9 @@ func (s *handler) startListener() {
 
 		lastSavedTime := time.Now()
 		requests := make([]*model.RowRequest, 0, bulkSize)
-		var current mysql.Position
-		from, _ := _transferService.positionDao.Get()
+		var curPos mysql.Position
+		parseGtid := mysql.MysqlGTIDSet{}
+		fromPos, ExecuteGtid, _ := _transferService.positionDao.Get()
 		for {
 			needFlush := false
 			needSavePos := false
@@ -156,7 +176,7 @@ func (s *handler) startListener() {
 						lastSavedTime = now
 						needFlush = true
 						needSavePos = true
-						current = mysql.Position{
+						curPos = mysql.Position{
 							Name: v.Name,
 							Pos:  v.Pos,
 						}
@@ -164,7 +184,21 @@ func (s *handler) startListener() {
 				case []*model.RowRequest:
 					requests = append(requests, v...)
 					needFlush = int64(len(requests)) >= global.Cfg().BulkSize
+				case model.GtidRequest:
+					if parseGtid.Sets == nil {
+						kkk, _ := mysql.ParseMysqlGTIDSet(v.Set.String())
+						parseGtid = *kkk.(*mysql.MysqlGTIDSet)
+					} else {
+						uuidset, _ := mysql.ParseUUIDSet(v.Set.String())
+						parseGtid.AddSet(uuidset)
+					}
+					now := time.Now()
+					if v.Force || now.Sub(lastSavedTime) > 3*time.Second {
+						needFlush = true
+						needSavePos = true
+					}
 				}
+
 			case <-ticker.C:
 				needFlush = true
 			case <-s.stop:
@@ -172,7 +206,8 @@ func (s *handler) startListener() {
 			}
 
 			if needFlush && len(requests) > 0 && _transferService.endpointEnable.Load() {
-				err := _transferService.endpoint.Consume(from, requests)
+
+				err := _transferService.endpoint.Consume(fromPos, requests)
 				if err != nil {
 					_transferService.endpointEnable.Store(false)
 					metrics.SetDestState(metrics.DestStateFail)
@@ -182,13 +217,20 @@ func (s *handler) startListener() {
 				requests = requests[0:0]
 			}
 			if needSavePos && _transferService.endpointEnable.Load() {
-				logs.Infof("save position %s %d", current.Name, current.Pos)
-				if err := _transferService.positionDao.Save(current); err != nil {
-					logs.Errorf("save sync position %s err %v, close sync", current, err)
+				sets := parseGtid.Sets
+				for _, v := range sets {
+					ExecuteGtid.AddSet(v)
+				}
+
+				logs.Infof("save position: position(%s %d) gtid(%s)", curPos.Name, curPos.Pos, ExecuteGtid.String())
+
+				if err := _transferService.positionDao.Save(curPos, ExecuteGtid); err != nil {
+					logs.Errorf("save sync position %s err %v, close sync", curPos, err)
 					_transferService.Close()
 					return
 				}
-				from = current
+				fromPos = curPos
+
 			}
 		}
 	}()

@@ -1,6 +1,10 @@
 package model
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/siddontang/go-mysql/mysql"
+)
 
 /*
  *sync Pool 是用作存放可重用对象的对象池，可提升性能，存放在里面的对象只在两次GC之间有效
@@ -24,6 +28,11 @@ type RowRequest struct {
 type PosRequest struct {
 	Name  string
 	Pos   uint32
+	Force bool
+}
+
+type GtidRequest struct {
+	Set   mysql.GTIDSet
 	Force bool
 }
 

@@ -41,31 +41,69 @@ func (s *boltPositionStorage) Initialize() error {
 		if err != nil {
 			return err
 		}
-		return bt.Put(_fixPositionId, bytes)
+		err = bt.Put(_fixPositionId, bytes)
+		if err != nil {
+			return err
+		}
+
+		// for Gtid
+		bt = tx.Bucket(_gtidBucket)
+		data = bt.Get(_fixGtidId)
+		if data != nil {
+			return nil
+		}
+
+		bytes, err = msgpack.Marshal(mysql.MysqlGTIDSet{})
+		if err != nil {
+			return err
+		}
+		return bt.Put(_fixGtidId, bytes)
 	})
 }
 
-func (s *boltPositionStorage) Save(pos mysql.Position) error {
+func (s *boltPositionStorage) Save(pos mysql.Position, gtid mysql.MysqlGTIDSet) error {
 	return _bolt.Update(func(tx *bbolt.Tx) error {
 		bt := tx.Bucket(_positionBucket)
 		data, err := msgpack.Marshal(pos)
 		if err != nil {
 			return err
 		}
-		return bt.Put(_fixPositionId, data)
+		err = bt.Put(_fixPositionId, data)
+		if err != nil {
+			return err
+		}
+
+		bt = tx.Bucket(_gtidBucket)
+		data, err = msgpack.Marshal(gtid)
+		if err != nil {
+			return err
+		}
+		return bt.Put(_fixGtidId, data)
 	})
 }
 
-func (s *boltPositionStorage) Get() (mysql.Position, error) {
-	var entity mysql.Position
+func (s *boltPositionStorage) Get() (mysql.Position, mysql.MysqlGTIDSet, error) {
+	var pos mysql.Position
+	var gtid mysql.MysqlGTIDSet
 	err := _bolt.View(func(tx *bbolt.Tx) error {
 		bt := tx.Bucket(_positionBucket)
 		data := bt.Get(_fixPositionId)
 		if data == nil {
-			return errors.NotFoundf("PositionStorage")
+			return errors.NotFoundf("PositionStorage: position")
 		}
-		return msgpack.Unmarshal(data, &entity)
+		err := msgpack.Unmarshal(data, &pos)
+		if err != nil {
+			return err
+		}
+
+		bt = tx.Bucket(_gtidBucket)
+		data = bt.Get(_fixGtidId)
+		if data == nil {
+			return errors.NotFoundf("PositionStorage: gtid")
+		}
+
+		return msgpack.Unmarshal(data, &gtid)
 	})
 
-	return entity, err
+	return pos, gtid, err
 }

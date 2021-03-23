@@ -25,8 +25,8 @@ import (
 
 type PositionStorage interface {
 	Initialize() error
-	Save(pos mysql.Position) error
-	Get() (mysql.Position, error)
+	Save(pos mysql.Position, gtid mysql.MysqlGTIDSet) error
+	Get() (mysql.Position, mysql.MysqlGTIDSet, error)
 }
 
 func NewPositionStorage() PositionStorage {

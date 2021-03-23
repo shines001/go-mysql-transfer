@@ -35,16 +35,24 @@ func (s *zkPositionStorage) Initialize() error {
 		return err
 	}
 
-	err = zookeepers.CreateDirWithDataIfNecessary(global.Cfg().ZkPositionDir(), pos ,_zkConn)
+	err = zookeepers.CreateDirWithDataIfNecessary(global.Cfg().ZkPositionDir(), pos, _zkConn)
 	if err != nil {
 		return err
 	}
 
-	err = zookeepers.CreateDirIfNecessary(global.Cfg().ZkNodesDir(), _zkConn)
-	return err
+	gtid, err := json.Marshal(mysql.MysqlGTIDSet{})
+	if err != nil {
+		return err
+	}
+	err = zookeepers.CreateDirWithDataIfNecessary(global.Cfg().ZkGtidDir(), gtid, _zkConn)
+	if err != nil {
+		return err
+	}
+
+	return zookeepers.CreateDirIfNecessary(global.Cfg().ZkNodesDir(), _zkConn)
 }
 
-func (s *zkPositionStorage) Save(pos mysql.Position) error {
+func (s *zkPositionStorage) Save(pos mysql.Position, gtid mysql.MysqlGTIDSet) error {
 	_, stat, err := _zkConn.Get(global.Cfg().ZkPositionDir())
 	if err != nil {
 		return err
@@ -56,19 +64,42 @@ func (s *zkPositionStorage) Save(pos mysql.Position) error {
 	}
 
 	_, err = _zkConn.Set(global.Cfg().ZkPositionDir(), data, stat.Version)
+	if err != nil {
+		return err
+	}
+
+	// Gtid
+	_, stat, err = _zkConn.Get(global.Cfg().ZkGtidDir())
+	if err != nil {
+		return err
+	}
+
+	data, err = json.Marshal(gtid)
+	if err != nil {
+		return err
+	}
+	_, err = _zkConn.Set(global.Cfg().ZkGtidDir(), data, stat.Version)
 
 	return err
 }
 
-func (s *zkPositionStorage) Get() (mysql.Position, error) {
-	var entity mysql.Position
+func (s *zkPositionStorage) Get() (mysql.Position, mysql.MysqlGTIDSet, error) {
+	var pos mysql.Position
+	var gtid mysql.MysqlGTIDSet
 
 	data, _, err := _zkConn.Get(global.Cfg().ZkPositionDir())
 	if err != nil {
-		return entity, err
+		return pos, gtid, err
 	}
 
-	err = json.Unmarshal(data, &entity)
+	err = json.Unmarshal(data, &pos)
 
-	return entity, err
+	data, _, err = _zkConn.Get(global.Cfg().ZkGtidDir())
+	if err != nil {
+		return pos, gtid, err
+	}
+
+	err = json.Unmarshal(data, &gtid)
+
+	return pos, gtid, err
 }

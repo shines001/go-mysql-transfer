@@ -62,7 +62,7 @@ func Start() error {
 }
 
 func webAdminFunc(c *gin.Context) {
-	pos, _ := service.TransferServiceIns().Position()
+	pos, _, _ := service.TransferServiceIns().Position()
 
 	var tables []string
 	for _, v := range global.RuleKeyList() {

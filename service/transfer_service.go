@@ -82,6 +82,13 @@ func (s *TransferService) initialize() error {
 	}
 	s.positionDao = positionDao
 
+	// 启用了Gtid模式
+	if global.Cfg().Gtid == true {
+		if err := s.checkInitGtid(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// endpoint
 	endpoint := endpoint.NewEndpoint(s.canal)
 	if err := endpoint.Connect(); err != nil {
@@ -105,29 +112,43 @@ func (s *TransferService) initialize() error {
 }
 
 func (s *TransferService) run() error {
-	current, err := s.positionDao.Get()
+	pos, gtid, err := s.positionDao.Get()
 	if err != nil {
 		return err
 	}
 
 	s.wg.Add(1)
-	go func(p mysql.Position) {
+	go func(p mysql.Position, gtid mysql.MysqlGTIDSet) {
 		s.canalEnable.Store(true)
-		log.Println(fmt.Sprintf("transfer run from position(%s %d)", p.Name, p.Pos))
-		if err := s.canal.RunFrom(p); err != nil {
-			log.Println(fmt.Sprintf("start transfer : %v", err))
-			logs.Errorf("canal : %v", errors.ErrorStack(err))
-			if s.canalHandler != nil {
-				s.canalHandler.stopListener()
+		log.Println(fmt.Sprintf("transfer run from position(%s %d) gtid(%s)", p.Name, p.Pos, gtid.String()))
+
+		if global.Cfg().Gtid == true {
+			err := s.canal.StartFromGTID(&gtid)
+			if err != nil {
+				log.Println(fmt.Sprintf("start transfer : %v", err))
+				logs.Errorf("canal : %v", errors.ErrorStack(err))
+				if s.canalHandler != nil {
+					s.canalHandler.stopListener()
+				}
+				s.canalEnable.Store(false)
 			}
-			s.canalEnable.Store(false)
+		} else {
+			err := s.canal.RunFrom(p)
+			if err != nil {
+				log.Println(fmt.Sprintf("start transfer : %v", err))
+				logs.Errorf("canal : %v", errors.ErrorStack(err))
+				if s.canalHandler != nil {
+					s.canalHandler.stopListener()
+				}
+				s.canalEnable.Store(false)
+			}
 		}
 
 		logs.Info("Canal is Closed")
 		s.canalEnable.Store(false)
 		s.canal = nil
 		s.wg.Done()
-	}(current)
+	}(pos, gtid)
 
 	// canal未提供回调，停留一秒，确保RunFrom启动成功
 	time.Sleep(time.Second)
@@ -195,7 +216,7 @@ func (s *TransferService) Close() {
 	s.loopStopSignal <- struct{}{}
 }
 
-func (s *TransferService) Position() (mysql.Position, error) {
+func (s *TransferService) Position() (mysql.Position, mysql.MysqlGTIDSet, error) {
 	return s.positionDao.Get()
 }
 
@@ -284,6 +305,34 @@ func (s *TransferService) completeRules() error {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+/*
+ * 初始化检查Gtid，如果当前Gtid为空，则使用数据库中的Gtid
+ */
+func (s *TransferService) checkInitGtid() error {
+	pos, gtid, err := s.positionDao.Get()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if gtid.Sets == nil {
+		res, err := s.canal.Execute("show global variables like 'gtid_purged'")
+		defer res.Close()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		gtidStr, _ := res.GetString(0, 1)
+		purge_gtid, err := mysql.ParseMysqlGTIDSet(gtidStr)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		sets := purge_gtid.(*mysql.MysqlGTIDSet)
+		return s.positionDao.Save(pos, *sets)
 	}
 
 	return nil

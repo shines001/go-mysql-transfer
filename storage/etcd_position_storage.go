@@ -40,27 +40,57 @@ func (s *etcdPositionStorage) Initialize() error {
 		return err
 	}
 
+	data, err = json.Marshal(mysql.MysqlGTIDSet{})
+	if err != nil {
+		return err
+	}
+
+	err = etcds.CreateIfNecessary(global.Cfg().ZkGtidDir(), string(data), _etcdOps)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *etcdPositionStorage) Save(pos mysql.Position) error {
+func (s *etcdPositionStorage) Save(pos mysql.Position, gtid mysql.MysqlGTIDSet) error {
 	data, err := json.Marshal(pos)
 	if err != nil {
 		return err
 	}
 
-	return etcds.Save(global.Cfg().ZkPositionDir(), string(data), _etcdOps)
+	err = etcds.Save(global.Cfg().ZkPositionDir(), string(data), _etcdOps)
+	if err != nil {
+		return err
+	}
+
+	data, err = json.Marshal(gtid)
+	if err != nil {
+		return err
+	}
+	return etcds.Save(global.Cfg().ZkGtidDir(), string(data), _etcdOps)
 }
 
-func (s *etcdPositionStorage) Get() (mysql.Position, error) {
-	var entity mysql.Position
+func (s *etcdPositionStorage) Get() (mysql.Position, mysql.MysqlGTIDSet, error) {
+	var pos mysql.Position
+	var gtid mysql.MysqlGTIDSet
 
 	data, _, err := etcds.Get(global.Cfg().ZkPositionDir(), _etcdOps)
 	if err != nil {
-		return entity, err
+		return pos, gtid, err
 	}
 
-	err = json.Unmarshal(data, &entity)
+	err = json.Unmarshal(data, &pos)
+	if err != nil {
+		return pos, gtid, err
+	}
 
-	return entity, err
+	data, _, err = etcds.Get(global.Cfg().ZkGtidDir(), _etcdOps)
+	if err != nil {
+		return pos, gtid, err
+	}
+
+	err = json.Unmarshal(data, &gtid)
+
+	return pos, gtid, err
 }

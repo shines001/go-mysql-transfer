@@ -4,7 +4,8 @@ user: root
 pass: 910825
 charset : utf8
 slave_id: 1001 #slave ID
-flavor: mariadb #mysql or mariadb,默认mysql
+flavor: mysql #mysql or mariadb,默认mysql
+gtid: true     # 是否使用Gtid复制，默认为false
 
 #系统相关配置
 #data_dir: D:\\transfer #应用产生的数据存放地址，包括日志、缓存数据等，默认当前运行目录下store文件夹
@@ -79,8 +80,8 @@ mysql_pass: 910825
 rule:
   -
     schema: lxy #源数据库名称
-    table: tt_test #源表名称,mysql、oracle、pg不支持同配符号
-    order_by_column: tt_id #排序字段，存量数据同步时不能为空
+    table: ll_info #源表名称,mysql、oracle、pg不支持同配符号
+    order_by_column: lid #排序字段，存量数据同步时不能为空
     #column_lower_case:false #列名称转为小写,默认为false
     #column_upper_case: true #列名称转为大写,默认为false
     #column_underscore_to_camel: true #列名称下划线转驼峰,默认为false 转大写、小写、驼峰只能三选一
@@ -97,8 +98,8 @@ rule:
     #value_formatter: '{{.ID}}|{{.USER_NAME}}' # 值格式化表达式，如：{{.ID}}|{{.USER_NAME}},{{.ID}}表示ID字段的值、{{.USER_NAME}}表示USER_NAME字段的值
 
     #mysql相关
-    mysql_database: test #目标mysql的数据库名,必填
-    mysql_table: t_m  #目标mysql的表名,可以为空，默认使用源表名称
+    mysql_database: pzj #目标mysql的数据库名,必填
+    mysql_table: p_info  #目标mysql的表名,可以为空，默认使用源表名称
     
     #redis相关
     #redis_structure: string # 数据类型。 支持string、hash、list、set、sortedset类型(与redis的数据类型一致)

@@ -70,6 +70,7 @@ type Config struct {
 
 	SlaveID uint32 `yaml:"slave_id"`
 	Flavor  string `yaml:"flavor"`
+	Gtid    bool   `yaml:"gtid"`
 	DataDir string `yaml:"data_dir"`
 
 	DumpExec       string `yaml:"mysqldump"`
@@ -596,6 +597,10 @@ func (c *Config) ZkClusterDir() string {
 
 func (c *Config) ZkPositionDir() string {
 	return _zkRootDir + "/" + c.Cluster.Name + "/position"
+}
+
+func (c *Config) ZkGtidDir() string {
+	return _zkRootDir + "/" + c.Cluster.Name + "/gtid"
 }
 
 func (c *Config) ZkElectionDir() string {

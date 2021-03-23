@@ -45,6 +45,8 @@ const (
 var (
 	_positionBucket = []byte("Position")
 	_fixPositionId  = byteutil.Uint64ToBytes(uint64(1))
+	_gtidBucket     = []byte("Gtid")
+	_fixGtidId      = byteutil.Uint64ToBytes(uint64(1))
 
 	_bolt           *bbolt.DB
 	_zkConn         *zk.Conn
@@ -89,6 +91,7 @@ func initBolt() error {
 
 	err = bolt.Update(func(tx *bbolt.Tx) error {
 		tx.CreateBucketIfNotExists(_positionBucket)
+		tx.CreateBucketIfNotExists(_gtidBucket)
 		return nil
 	})
 

@@ -42,6 +42,7 @@ var (
 	cfgPath      string
 	stockFlag    bool
 	positionFlag bool
+	gtidFlag     bool
 	statusFlag   bool
 )
 
@@ -50,6 +51,7 @@ func init() {
 	flag.StringVar(&cfgPath, "config", "app.yml", "application config file")
 	flag.BoolVar(&stockFlag, "stock", false, "stock data import")
 	flag.BoolVar(&positionFlag, "position", false, "set dump position")
+	flag.BoolVar(&gtidFlag, "gtid", false, "set dump gtid")
 	flag.BoolVar(&statusFlag, "status", false, "display application status")
 	flag.Usage = usage
 }
@@ -91,6 +93,11 @@ func main() {
 		return
 	}
 
+	if gtidFlag {
+		doGtid()
+		return
+	}
+
 	err = service.Initialize()
 	if err != nil {
 		println(errors.ErrorStack(err))
@@ -128,8 +135,8 @@ func doStock() {
 
 func doStatus() {
 	ps := storage.NewPositionStorage()
-	pos, _ := ps.Get()
-	fmt.Printf("The current dump position is : %s %d \n", pos.Name, pos.Pos)
+	pos, gtid, _ := ps.Get()
+	fmt.Printf("The current dump position is : position (%s %d), gtid : %s \n", pos.Name, pos.Pos, gtid.String())
 }
 
 func doPosition() {
@@ -157,8 +164,32 @@ func doPosition() {
 		Name: f,
 		Pos:  pp,
 	}
-	ps.Save(pos)
+	ps.Save(pos, mysql.MysqlGTIDSet{})
 	fmt.Printf("The current dump position is : %s %d \n", f, pp)
+}
+
+func doGtid() {
+	others := flag.Args()
+	if len(others) != 1 {
+		println("error: please input correct gtid")
+		return
+	}
+	gtidStr := others[0]
+
+	ps := storage.NewPositionStorage()
+	pos, _, err := ps.Get()
+	if err != nil {
+		errors.Trace(err)
+	}
+
+	newgtid, err := mysql.ParseMysqlGTIDSet(gtidStr)
+	if err != nil {
+		println("error: please input correct gtid")
+		return
+	}
+
+	ps.Save(pos, *newgtid.(*mysql.MysqlGTIDSet))
+	fmt.Printf("The current dump gtid is : %s \n", newgtid.String())
 }
 
 func usage() {
