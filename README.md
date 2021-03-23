@@ -121,4 +121,6 @@ show binlog events [IN 'log_name'] [FROM pos] [LIMIT [offset,] row_count];
 
 
 * [mysql binlog介绍](https://blog.csdn.net/wwwdc1012/article/details/88373440)
+
+* [mysql gtid介绍](https://blog.csdn.net/wangxin3618/article/details/82984807)
    
