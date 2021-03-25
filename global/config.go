@@ -71,6 +71,7 @@ type Config struct {
 	SlaveID uint32 `yaml:"slave_id"`
 	Flavor  string `yaml:"flavor"`
 	Gtid    bool   `yaml:"gtid"`
+	Ddl     bool   `yaml:"ddl"`
 	DataDir string `yaml:"data_dir"`
 
 	DumpExec       string `yaml:"mysqldump"`

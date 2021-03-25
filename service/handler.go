@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"go-mysql-transfer/metrics"
 	"log"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/siddontang/go-mysql/canal"
@@ -48,11 +47,6 @@ func newHandler() *handler {
 func (s *handler) OnRotate(e *replication.RotateEvent) error {
 
 	fmt.Printf("OnRotate replication.RotateEvent:  %v\n", e)
-	s.queue <- model.PosRequest{
-		Name:  string(e.NextLogName),
-		Pos:   uint32(e.Position),
-		Force: true,
-	}
 	return nil
 }
 
@@ -67,28 +61,54 @@ func (s *handler) OnTableChanged(schema, table string) error {
 
 func (s *handler) OnDDL(nextPos mysql.Position, qe *replication.QueryEvent) error {
 	fmt.Printf("OnDDL  nextPos :%v, queryEvent :%s,%s\n ", nextPos, string(qe.Schema), string(qe.Query))
-	s.queue <- model.PosRequest{
-		Name:  nextPos.Name,
-		Pos:   nextPos.Pos,
-		Force: true,
+
+	if global.Cfg().Ddl == true {
+		var requests []*model.RowRequest
+		v := new(model.RowRequest)
+		v.Action = "DDL"
+		v.Schema = string(qe.Schema)
+		v.Query = string(qe.Query)
+		requests = append(requests, v)
+
+		s.queue <- requests
 	}
+
 	return nil
 }
 
 func (s *handler) OnXID(nextPos mysql.Position) error {
-
 	fmt.Printf("OnXID %v\n", nextPos)
-	s.queue <- model.PosRequest{
-		Name:  nextPos.Name,
-		Pos:   nextPos.Pos,
-		Force: false,
+	return nil
+}
+
+func (s *handler) OnGTID(gtid mysql.GTIDSet) error {
+
+	fmt.Printf("OnGTID %s\n", gtid.String())
+	return nil
+}
+
+func (s *handler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
+
+	fmt.Printf("OnPosSynced: pos: %v,  gtid: %v\n", pos, set)
+	if global.Cfg().Gtid == true {
+		s.queue <- model.GtidRequest{
+			Set:   set,
+			Force: false,
+		}
+	} else {
+		s.queue <- model.PosRequest{
+			Name:  pos.Name,
+			Pos:   pos.Pos,
+			Force: false,
+		}
 	}
+
 	return nil
 }
 
 func (s *handler) OnRow(e *canal.RowsEvent) error {
 
-	fmt.Printf("OnRow  %v\n", e)
+	fmt.Printf("OnRow  %v,  len:%d\n", e, len(e.Rows))
 
 	ruleKey := global.RuleKey(e.Table.Schema, e.Table.Name)
 	if !global.RuleInsExist(ruleKey) {
@@ -131,39 +151,15 @@ func (s *handler) OnRow(e *canal.RowsEvent) error {
 	return nil
 }
 
-func (s *handler) OnGTID(gtid mysql.GTIDSet) error {
-
-	fmt.Printf("OnGTID %v\n", gtid)
-	fmt.Println(gtid.String())
-	s.queue <- model.GtidRequest{
-		Set:   gtid,
-		Force: false,
-	}
-	return nil
-}
-
-func (s *handler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
-
-	fmt.Printf("OnPosSynced\n")
-	return nil
-}
-
 func (s *handler) String() string {
 	return "TransferHandler"
 }
 
 func (s *handler) startListener() {
 	go func() {
-		interval := time.Duration(global.Cfg().FlushBulkInterval)
-		bulkSize := global.Cfg().BulkSize
-		ticker := time.NewTicker(time.Millisecond * interval)
-		defer ticker.Stop()
-
-		lastSavedTime := time.Now()
-		requests := make([]*model.RowRequest, 0, bulkSize)
+		var requests []*model.RowRequest
 		fromPos, ExecuteGtid, _ := _transferService.positionDao.Get()
 		for {
-			needFlush := false
 			needSavePos := false
 			select {
 			case v := <-s.queue:
@@ -173,30 +169,19 @@ func (s *handler) startListener() {
 						Name: v.Name,
 						Pos:  v.Pos,
 					}
-					now := time.Now()
-					if v.Force || now.Sub(lastSavedTime) > 3*time.Second {
-						lastSavedTime = now
-						needFlush = true
-						needSavePos = true
-					}
-
-				case []*model.RowRequest:
-					requests = append(requests, v...)
-					needFlush = int64(len(requests)) >= global.Cfg().BulkSize
+					needSavePos = true
 				case model.GtidRequest:
 					uuidset, _ := mysql.ParseUUIDSet(v.Set.String())
 					ExecuteGtid.AddSet(uuidset)
+					needSavePos = true
+				case []*model.RowRequest:
+					requests = append(requests, v...)
 				}
-
-			case <-ticker.C:
-				needFlush = true
-				needSavePos = true
 			case <-s.stop:
 				return
 			}
 
-			if needFlush && len(requests) > 0 && _transferService.endpointEnable.Load() {
-
+			if len(requests) > 0 && _transferService.endpointEnable.Load() {
 				err := _transferService.endpoint.Consume(fromPos, requests)
 				if err != nil {
 					_transferService.endpointEnable.Store(false)

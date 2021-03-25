@@ -23,6 +23,8 @@ type RowRequest struct {
 	Timestamp uint32
 	Old       []interface{}
 	Row       []interface{}
+	Schema    string
+	Query     string
 }
 
 type PosRequest struct {

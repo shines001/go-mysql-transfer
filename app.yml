@@ -1,11 +1,12 @@
 # mysql配置
-addr: 127.0.0.1:3306
+addr: 127.0.0.1:3306 
 user: root
 pass: 910825
 charset : utf8
 slave_id: 1001 #slave ID
 flavor: mysql #mysql or mariadb,默认mysql
 gtid: true     # 是否使用Gtid复制，默认为false
+ddl: true  #是否支持ddl语句,不支持表名映射或者字段名映射，即对象名须一致
 
 #web admin相关配置
 enable_web_admin: false #是否启用web admin，默认false
@@ -15,7 +16,7 @@ web_admin_port: 8060 #web监控端口,默认8060
 target: mysql # 支持mysql、redis、mongodb、elasticsearch、rocketmq、kafka、rabbitmq
 
 #目标mysql连接配置
-mysql_addrs: 127.0.0.1:3306  
+mysql_addrs: 192.168.138.144:3306  
 mysql_user: root
 mysql_pass: 910825
 
@@ -26,5 +27,5 @@ rule:
     table: ll_info #源表名称,mysql、oracle、pg不支持同配符号
     order_by_column: lid #排序字段，存量数据同步时不能为空
     value_encoder: json  #值编码，支持json、kv-commas、v-commas；默认为json
-    mysql_database: pzj #目标mysql的数据库名,必填
-    mysql_table: p_info  #目标mysql的表名,可以为空，默认使用源表名称
+    mysql_database: lxy #目标mysql的数据库名,必填
+    mysql_table: ll_info  #目标mysql的表名,可以为空，默认使用源表名称

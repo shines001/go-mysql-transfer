@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"sync"
 
-	//"github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/siddontang/go-mysql/canal"
 	"github.com/siddontang/go-mysql/client"
 	"github.com/siddontang/go-mysql/mysql"
@@ -77,6 +77,20 @@ func (s *MysqlEndpoint) Close() {
 
 func (s *MysqlEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) error {
 	for _, row := range rows {
+
+		//ddl的支持
+		if row.Action == "DDL" {
+			err := s.client.UseDB(row.Schema)
+			if err != nil {
+				return errors.Errorf("Consume  Use error: %q", err)
+			}
+			_, er := s.client.Execute(row.Query)
+			if er != nil {
+				return errors.Errorf("Consume  ddl  error: %q", er)
+			}
+			continue
+		}
+
 		rule, _ := global.RuleIns(row.RuleKey)
 		if rule.TableColumnSize != len(row.Row) {
 			logs.Warnf("%s schema mismatching", row.RuleKey)
@@ -116,16 +130,14 @@ func (s *MysqlEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) e
 
 		stmt, err := s.client.Prepare(sql_text)
 		if err != nil {
-			logs.Errorf("mysql prepare error : %v, sql is :%s  ", err, sql_text)
-			continue
+			return errors.Errorf("mysql prepare error: %q", err)
 		}
 
 		defer stmt.Close()
 
 		_, errExt := stmt.Execute(valueList[0:]...)
 		if errExt != nil {
-			logs.Errorf("mysql execute error : %v, value is :%v  ", errExt, valueList)
-			continue
+			return errors.Errorf("mysql execute error: %q", errExt)
 		}
 
 		logs.Infof("Excute %s OK!  SQL is :%s, value: %v ", row.Action, sql_text, valueList)
