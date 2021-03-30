@@ -407,3 +407,53 @@ func BuildDelete(table string, flist []string, dbType string) string {
 
 	return sql
 }
+
+func BuildBatchInsert(table string, flist []string, batchSize int, dbType string) string {
+
+	sql := `INSERT INTO ` + table
+	cln_sql := ` ( `
+	vle_sql := ` VALUES `
+
+	i := 0
+	for _, k := range flist {
+		cln_sql += k
+
+		if i == len(flist)-1 {
+			cln_sql += ` ) `
+		} else {
+			cln_sql += ` , `
+		}
+		i++
+	}
+
+	for j := 0; j < batchSize; j++ {
+		vle_sql = vle_sql + `(`
+
+		for m := 0; m < len(flist); m++ {
+			switch dbType {
+			case "mysql":
+				vle_sql += `?`
+			case "postgres":
+				vle_sql = vle_sql + `$` + strconv.Itoa(i+1)
+			case "oracle":
+				vle_sql = vle_sql + `:` + strconv.Itoa(i+1)
+			default:
+				vle_sql += `?`
+			}
+
+			if m == len(flist)-1 {
+				vle_sql += ` ) `
+			} else {
+				vle_sql += ` , `
+			}
+		}
+
+		if j != batchSize-1 {
+			vle_sql += ` , `
+		}
+	}
+
+	sql = sql + cln_sql + vle_sql
+
+	return sql
+}

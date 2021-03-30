@@ -22,6 +22,7 @@ import (
 	//"log"
 	//"strings"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/juju/errors"
@@ -150,61 +151,57 @@ func (s *MysqlEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) e
 }
 
 func (s *MysqlEndpoint) Stock(rows []*model.RowRequest) int64 {
+
+	//fmt.Printf("rows length is : %d\n", len(rows))
+	if len(rows) == 0 {
+		return 0
+	}
+
+	//建立连接
+	cfg := global.Cfg()
+	myConn, err := client.Connect(cfg.MysqlAddr, cfg.MysqlUser, cfg.MysqlPass, "")
+	if err != nil {
+		logs.Errorf("MysqlEndpoint connetc mysql error: %v, addr: %s,user: %s,pass: %s", err, cfg.MysqlAddr, cfg.MysqlUser, cfg.MysqlPass)
+		return 0
+	}
+	defer myConn.Close()
+
+	row := rows[0]
+	rule, _ := global.RuleIns(row.RuleKey)
+	table := rule.MysqlDatabase + "." + rule.MysqlTable
+	kvm := rowMap(row, rule, false)
+
+	//对字段名进行排序
+	var fieldList []string
+	for k := range kvm {
+		fieldList = append(fieldList, k)
+	}
+	sort.Strings(fieldList)
+
+	sql_text := stringutil.BuildBatchInsert(table, fieldList, len(rows), "mysql")
+	//fmt.Printf("sql :%s \n", sql_text)
+	stmt, err1 := myConn.Prepare(sql_text)
+	if err != nil {
+		logs.Errorf("mysql prepare error : %v, sql is :%s  ", err1, sql_text)
+		return 0
+	}
+	defer stmt.Close()
+
+	var valueList []interface{} //值列表
 	for _, row := range rows {
-		rule, _ := global.RuleIns(row.RuleKey)
-		if rule.TableColumnSize != len(row.Row) {
-			logs.Warnf("%s schema mismatching", row.RuleKey)
-			continue
+		tmpkvm := rowMap(row, rule, false)
+
+		for _, kk := range fieldList {
+			valueList = append(valueList, tmpkvm[kk])
 		}
+	}
 
-		table := rule.MysqlDatabase + "." + rule.MysqlTable
-		var sql_text string
-		kvm := rowMap(row, rule, false)
-
-		//为了确保绑定变量和数据一一对应
-		var fieldList []string      //field列表
-		var valueList []interface{} //值列表
-		for k, v := range kvm {
-			//新的值列表,insert 和 delete只需要kvm,update语句需要旧的值,即old_kvm
-			fieldList = append(fieldList, k)
-			valueList = append(valueList, v)
-		}
-
-		switch row.Action {
-		case canal.UpdateAction:
-			old_kvm := oldRowMap(row, rule, false)
-
-			for _, k := range fieldList {
-				valueList = append(valueList, old_kvm[k])
-			}
-			sql_text = stringutil.BuildUpdate(table, fieldList, "mysql")
-
-		case canal.InsertAction:
-			sql_text = stringutil.BuildInsert(table, fieldList, "mysql")
-		case canal.DeleteAction:
-			sql_text = stringutil.BuildDelete(table, fieldList, "mysql")
-		default:
-			logs.Errorf("Consume get error action: %v", row)
-			continue
-		}
-
-		stmt, err := s.client.Prepare(sql_text)
-		if err != nil {
-			logs.Errorf("mysql prepare error : %v, sql is :%s  ", err, sql_text)
-			continue
-		}
-
-		defer stmt.Close()
-
-		_, errExt := stmt.Execute(valueList[0:]...)
-		if errExt != nil {
-			logs.Errorf("mysql execute error : %v, value is :%v  ", errExt, valueList)
-			continue
-		}
-
-		logs.Infof("Excute %s OK!  SQL is :%s, value: %v ", row.Action, sql_text, valueList)
-		fmt.Printf("Excute %s OK!  SQL is :%s ,value: %v\n ", row.Action, sql_text, valueList)
+	_, errExt := stmt.Execute(valueList[0:]...)
+	if errExt != nil {
+		logs.Errorf("mysql execute error : %v, value is :%v  ", errExt, valueList)
+		return 0
 	}
 
 	return int64(len(rows))
+
 }

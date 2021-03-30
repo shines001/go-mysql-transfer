@@ -25,6 +25,7 @@ import (
 	"os/signal"
 	"regexp"
 	"syscall"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/siddontang/go-mysql/mysql"
@@ -126,11 +127,19 @@ func main() {
 }
 
 func doStock() {
+	startTs := int64(time.Now().Unix())
 	stock := service.NewStockService()
 	if err := stock.Run(); err != nil {
 		println(errors.ErrorStack(err))
 	}
 	stock.Close()
+
+	endTs := int64(time.Now().Unix())
+
+	dur := endTs - startTs
+
+	fmt.Printf("++++++stock 运行时间: %d 秒+++++++++++\n", dur)
+
 }
 
 func doStatus() {
