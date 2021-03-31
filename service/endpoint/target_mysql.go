@@ -141,8 +141,8 @@ func (s *MysqlEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) e
 			return errors.Errorf("mysql execute error: %q", errExt)
 		}
 
-		logs.Infof("Excute %s OK!  SQL is :%s, value: %v ", row.Action, sql_text, valueList)
-		fmt.Printf("Excute %s OK!  SQL is :%s ,value: %v\n ", row.Action, sql_text, valueList)
+		//logs.Infof("Excute %s OK!  SQL is :%s, value: %v ", row.Action, sql_text, valueList)
+		//fmt.Printf("Excute %s OK!  SQL is :%s ,value: %v\n ", row.Action, sql_text, valueList)
 
 	}
 
